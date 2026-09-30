@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quick Tasks</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;600&display=swap">
+<style>
+:root{--ink:#f4f4f6;--dim:#8d8d95;--acc:#5ea1ff;--red:#ff6b6b;--amb:#ffb340;--fill:rgba(255,255,255,.09);--fill2:rgba(255,255,255,.16);
+ --spring:cubic-bezier(.3,1.18,.4,1);--ease:cubic-bezier(.25,.8,.25,1)}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:transparent;overflow:hidden}
+body{color:var(--ink);font:14px/1.4 "Google Sans","Google Sans Flex","Google Sans Text","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;user-select:none}
+
+/* the island: one black surface that morphs between pill and panel */
+#island{position:fixed;top:8px;left:50%;transform:translateX(-50%);width:128px;height:36px;background:#000;border-radius:18px;overflow:hidden;cursor:pointer;
+ box-shadow:0 0 0 1px rgba(255,255,255,.07),0 14px 40px rgba(0,0,0,.45);
+ transition:width .62s var(--spring),height .62s var(--spring),border-radius .5s var(--ease),transform .45s var(--spring)}
+#island:not(.open):hover{transform:translateX(-50%) scale(1.06)}
+#island:not(.open):active{transform:translateX(-50%) scale(.97)}
+#island.open{border-radius:30px;cursor:default}
+/* closed: no pill at the top any more (the taskbar widget is the resting state); the island only appears while open */
+#island:not(.open){opacity:0;pointer-events:none;transition:width .45s var(--ease),height .45s var(--ease),border-radius .45s var(--ease),opacity .22s .05s}
+#island.open{transition:width .62s var(--spring),height .62s var(--spring),border-radius .5s var(--ease),transform .45s var(--spring),opacity .12s}
+#pill{display:none}
+
+#pill{position:absolute;inset:0;display:flex;align-items:center;gap:9px;padding:0 15px;font-size:13px;font-weight:500;white-space:nowrap;
+ transition:opacity .22s .16s,filter .22s .16s}
+#pin{display:flex;align-items:center;gap:9px;flex:none}
+#pin .ring{width:14px;height:14px;border-radius:50%;border:2px solid var(--dim);flex:none}
+#pin .ring.doing{background:radial-gradient(circle,currentColor 38%,transparent 44%)}
+#pin .ring.u4{border-color:var(--red);color:var(--red)}#pin .ring.u3{border-color:var(--acc);color:var(--acc)}#pin .ring.u2{border-color:var(--amb);color:var(--amb)}
+#pin .ring.doing{border-color:var(--acc);color:var(--acc)}
+#pin .pt{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+#pin .pd{font-size:12px;color:var(--dim);font-weight:500}
+#pin .pd.today{color:var(--acc)}#pin .pd.over{color:var(--red)}
+#pin .pn{font-size:12px;font-weight:600;color:var(--dim);background:var(--fill2);border-radius:9px;padding:1px 7px}
+#island.open #pill{opacity:0;filter:blur(8px);pointer-events:none;transition-delay:0s;transition-duration:.15s}
+
+#panel{position:absolute;top:0;left:50%;width:620px;margin-left:-310px;padding-bottom:12px;
+ opacity:0;filter:blur(10px);transform:scale(.94);transform-origin:50% 0;pointer-events:none;
+ transition:opacity .16s,filter .16s,transform .3s var(--ease)}
+#island.open #panel{opacity:1;filter:none;transform:none;pointer-events:auto;transition:opacity .34s .1s,filter .34s .1s,transform .6s .04s var(--spring)}
+
+header{display:flex;align-items:center;gap:12px;padding:12px 12px 0}
+.add{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-radius:22px;background:var(--fill);transition:background .2s}
+.add:focus-within{background:var(--fill2)}
+.add svg{width:17px;height:17px;flex:none;stroke:var(--dim);fill:none;stroke-width:2;stroke-linecap:round;transition:stroke .2s}
+.add:focus-within svg{stroke:var(--acc)}
+#in{flex:1;min-width:0;background:none;color:var(--ink);border:0;font:inherit;font-size:15px;outline:none;user-select:text}
+#in::placeholder{color:var(--dim)}
+#tabs{display:flex;gap:2px;padding:3px;border-radius:20px;background:var(--fill);flex:none}
+.tab{background:none;border:0;border-radius:17px;color:var(--dim);font:inherit;font-size:13px;font-weight:500;padding:6px 12px;cursor:pointer;transition:background .2s,color .2s}
+.tab:hover{color:var(--ink)}
+.tab.on{background:var(--fill2);color:var(--ink)}
+.tab b{font-weight:500;opacity:.6;margin-left:6px}
+
+ul{list-style:none;max-height:340px;overflow:auto;margin:8px 6px 0;padding:2px 6px}
+ul::-webkit-scrollbar{width:0}
+li{display:flex;align-items:center;gap:12px;min-height:42px;padding:0 12px;border-radius:16px;transition:background .15s}
+li:hover{background:var(--fill)}
+li.sel{background:var(--fill2)}
+.chk{width:20px;height:20px;border:1.8px solid var(--dim);border-radius:50%;flex:none;cursor:pointer;display:grid;place-items:center;transition:background .18s,border-color .18s,transform .25s var(--spring)}
+.chk:hover{border-color:var(--acc);transform:scale(1.12)}
+.s1 .chk{border-color:var(--acc)}
+.s1 .chk::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--acc)}
+.s2 .chk{background:var(--acc);border-color:var(--acc)}
+.s2 .chk::after{content:"";width:5px;height:9px;border:solid #000;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s2 .t{color:var(--dim);text-decoration:line-through}
+.t input{width:100%;background:var(--fill);color:var(--ink);border:0;outline:2px solid var(--acc);border-radius:8px;padding:3px 6px;font:inherit;user-select:text}
+.tag{color:var(--dim);font-size:12px;margin-left:8px}
+.pl{font-size:11px;font-weight:600;color:var(--dim);flex:none;min-width:18px;text-align:center}
+.pl.p3{color:var(--red)}.pl.p2{color:var(--amb)}
+.est{font-size:12px;color:var(--dim);flex:none}
+.due{font-size:12px;color:var(--dim);flex:none}
+.due.today{color:var(--acc);font-weight:600}
+.due.over{color:var(--red);font-weight:600}
+.x{display:none;color:var(--dim);cursor:pointer;flex:none;width:22px;height:22px;place-items:center;border-radius:50%}
+.x:hover{background:var(--fill2);color:var(--ink)}
+li:hover .x,li.sel .x{display:grid}
+li:hover .due,li.sel .due{display:none}
+.empty{padding:34px 24px;color:var(--dim);text-align:center}
+.empty b{display:block;color:var(--ink);font-size:15px;font-weight:500;margin-bottom:4px}
+footer{padding:10px 24px 0;color:var(--dim);font-size:12px;display:flex;gap:16px;flex-wrap:wrap;min-height:22px}
+kbd{font:inherit;color:var(--ink);margin-right:5px;font-weight:500}
+:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){#island,#panel,#pill{transition-duration:.01s!important;transition-delay:0s!important}}
+</style>
+</head>
+<body>
+<div id="island">
+  <div id="pill"><div id="pin"></div></div>
+  <div id="panel">
+    <header>
+      <label class="add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><input id="in" autocomplete="off" spellcheck="false" placeholder="Add a task"></label>
+      <div id="tabs"></div>
+    </header>
+    <ul id="list"></ul>
+    <footer id="hint"></footer>
+  </div>
+</div>
+<script>
+const $=s=>document.querySelector(s), KEY='quicktasks.v1';
+let tasks=[],filter='active',sel=-1,editing=null,lastDel=null,toastT,isOpen=false,msg='';
+try{tasks=JSON.parse((window.qt?qt.load():localStorage.getItem(KEY))||'[]')}catch(e){}
+const save=()=>{try{const j=JSON.stringify(tasks);window.qt?qt.save(j):localStorage.setItem(KEY,j)}catch(e){}};
+const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
+const today=()=>iso(new Date());
+const addDays=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
+const DOW=['sun','mon','tue','wed','thu','fri','sat'];
+function parseDue(s){
+  s=s.toLowerCase();
+  if(s==='today'||s==='t')return today();
+  if(s==='tom'||s==='tomorrow')return addDays(1);
+  let m=s.match(/^\+?(\d+)d$/);if(m)return addDays(+m[1]);
+  m=s.match(/^\+?(\d+)w$/);if(m)return addDays(7*m[1]);
+  const i=DOW.indexOf(s.slice(0,3));
+  if(i>=0&&s.length>=3){let n=(i-new Date().getDay()+7)%7||7;return addDays(n)}
+  m=s.match(/^(\d{4}-)?(\d{1,2})-(\d{1,2})$/);
+  if(m){const y=m[1]?m[1].slice(0,4):new Date().getFullYear();return `${y}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`}
+  return null;
+}
+function parseTime(s){
+  const m=s.toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?(am|pm)?$/);
+  if(!m||(!m[2]&&!m[3]))return null;
+  let h=+m[1],mi=+(m[2]||0);
+  if(m[3]==='pm'&&h<12)h+=12;if(m[3]==='am'&&h===12)h=0;
+  if(h>23||mi>59)return null;
+  return String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0');
+}
+function parseEst(s){
+  const m=s.match(/^~(\d+(?:\.\d+)?)(m|h)$/i);
+  return m?Math.round(m[1]*(m[2].toLowerCase()==='h'?60:1)):null;
+}
+function parse(raw){
+  let tag='',pri=0,due='',time='',est=0;
+  let text=raw.replace(/(^|\s)(#\S+|!{1,3}(?=\s|$)|@\S+(?:\s+\d{1,2}(?::\d{2})?(?:am|pm))?|~\S+)/g,(all,sp,tok)=>{
+    const gap=sp?' ':'';
+    if(tok[0]==='#'){tag=tok.slice(1);return gap}
+    if(tok[0]==='!'){pri=tok.length;return gap}
+    if(tok[0]==='~'){const e=parseEst(tok);if(e){est=e;return gap}return all}
+    const [p0,p1]=tok.slice(1).split(/\s+/);
+    const d=parseDue(p0);
+    if(d){due=d;const t2=p1&&parseTime(p1);if(t2)time=t2;return t2||!p1?gap:gap+p1}
+    const t=parseTime(p0);if(t&&!p1){time=t;return gap}
+    return all;
+  }).replace(/\s+/g,' ').trim();
+  if(time&&!due){due=today();if(new Date(due+'T'+time)<new Date())due=addDays(1)}
+  return{text,tag,pri,due,time,est};
+}
+const fmtTime=t=>{let[h,m]=t.split(':').map(Number);const ap=h>=12?'pm':'am';h=h%12||12;return h+(m?':'+String(m).padStart(2,'0'):'')+ap};
+const fmtEst=m=>m>=60?(m%60?Math.floor(m/60)+'h'+m%60:m/60+'h'):m+'m';
+const dueAt=x=>x.due?new Date(x.due+'T'+(x.time||'23:59')):null;
+// urgency is derived from the deadline: 0 none, 1 this week, 2 soon, 3 today, 4 overdue
+function urg(x){
+  if(!x.due||x.s===2)return 0;
+  const ms=dueAt(x)-new Date();
+  if(ms<0)return 4;
+  if(x.due===today()||ms<864e5)return 3;
+  if(ms<3*864e5)return 2;
+  if(ms<7*864e5)return 1;
+  return 0;
+}
+const score=x=>urg(x)*4+x.pri*3;
+const rawOf=x=>x.raw||[x.text,x.tag&&'#'+x.tag,x.pri&&'!'.repeat(x.pri),x.due&&'@'+x.due,x.time&&'@'+x.time,x.est&&'~'+x.est+'m'].filter(Boolean).join(' ');
+const cmpActive=(a,b)=>(b.s===1)-(a.s===1)||score(b)-score(a)||(a.due||'9999').localeCompare(b.due||'9999')||a.id-b.id;
+const view=()=>{
+  const t=today();
+  let l=tasks.filter(x=>filter==='done'?x.s===2:filter==='today'?(x.s<2&&x.due&&x.due<=t):x.s<2);
+  const dk=x=>x.due||'9999';
+  return l.sort((a,b)=>filter==='done'?(b.done||0)-(a.done||0):(b.s===1)-(a.s===1)||score(b)-score(a)||dk(a).localeCompare(dk(b))||a.id-b.id);
+};
+function counts(){const t=today();return{active:tasks.filter(x=>x.s<2).length,today:tasks.filter(x=>x.s<2&&x.due&&x.due<=t).length,done:tasks.filter(x=>x.s===2).length}}
+function dueLabel(x){
+  const d=x.due,t=today();let l;
+  if(d<t){l=Math.round((new Date(t)-new Date(d))/864e5)+'d late'}
+  else if(d===t){l=x.time&&dueAt(x)<new Date()?'late':'today'}
+  else if(d===addDays(1))l='tom';
+  else{const dt=new Date(d+'T00:00');const n=Math.round((dt-new Date(t))/864e5);l=n<7?DOW[dt.getDay()]:d.slice(5)}
+  if(x.time&&d>=t&&l!=='late')l+=' '+fmtTime(x.time);
+  return l;
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ---- island sizing: width/height are driven from JS so CSS can spring them ---- */
+const island=$('#island'),panel=$('#panel');
+let pillW=128;
+function layout(){
+  const w=isOpen?620:pillW, h=isOpen?panel.offsetHeight:36;
+  island.style.width=w+'px';island.style.height=h+'px';
+}
+function setOpen(v){
+  if(v===isOpen)return;
+  isOpen=v;island.classList.toggle('open',v);
+  if(v){sel=-1;editing=null;$('#in').value='';render();layout();
+    if(window.qt)qt.focus();setTimeout(()=>$('#in').focus(),80)}
+  else{editing=null;$('#in').blur();sel=-1;render()}
+}
+
+function hint(){
+  const K=(k,t)=>`<span><kbd>${k}</kbd>${t}</span>`;
+  $('#hint').innerHTML=msg?`<span>${esc(msg)}</span>`:editing?K('Enter','save')+K('Esc','cancel'):sel>=0?K('Space','status')+K('E','edit')+K('Del','remove')+K('Esc','back'):K('!!!','priority')+K('@fri 5pm','deadline')+K('~30m','effort')+K('#tag','tag')+K('↓','select');
+}
+function render(){
+  const c=counts();
+  $('#tabs').innerHTML=[['active','Active'],['today','Today'],['done','Done']].map(([k,n])=>`<button class="tab ${filter===k?'on':''}" data-f="${k}">${n}<b>${c[k]}</b></button>`).join('');
+  const l=view();if(sel>=l.length)sel=l.length-1;
+  $('#list').innerHTML=l.length?l.map((x,i)=>{
+    const u=urg(x),dl=x.due?dueLabel(x):'',dc=u===4?'over':u===3?'today':'';
+    const body=editing===x.id?`<input id="ed" value="${esc(rawOf(x))}">`:`${esc(x.text)}${x.tag?`<span class="tag">#${esc(x.tag)}</span>`:''}`;
+    return `<li data-id="${x.id}" class="s${x.s} ${i===sel?'sel':''}"><span class="chk"></span><span class="t">${body}</span>${x.est?`<span class="est" title="Estimate">${fmtEst(x.est)}</span>`:''}${x.pri?`<span class="pl p${x.pri}" title="Priority P${4-x.pri}">P${4-x.pri}</span>`:''}<span class="x">✕</span>${x.due?`<span class="due ${dc}">${dl}</span>`:''}</li>`;
+  }).join(''):`<div class="empty">${filter==='done'?'<b>Nothing finished yet</b>Completed tasks show up here.':filter==='today'?'<b>Nothing due today</b>Add @today to a task to see it here.':'<b>No open tasks</b>Type above and press Enter.'}</div>`;
+  const ed=$('#ed');if(ed){ed.focus();ed.select()}
+  const s=document.querySelector('li.sel');if(s)s.scrollIntoView({block:'nearest'});
+  document.title=`Quick Tasks (${c.active})`;
+  // pill: the task to do next (the one in progress, else the top-ranked), its deadline, and how many others wait
+  const act=tasks.filter(x=>x.s<2).sort(cmpActive),f=act[0];
+  if(f){
+    const u=urg(f),dc=u===4?'over':u===3?'today':'';
+    $('#pin').innerHTML=`<span class="ring ${f.s===1?'doing ':''}u${u}"></span><span class="pt">${esc(f.text)}</span>${f.due?`<span class="pd ${dc}">${dueLabel(f)}</span>`:''}${act.length>1?`<span class="pn">+${act.length-1}</span>`:''}`;
+  }else $('#pin').innerHTML='<span class="ring"></span><span class="pt">All clear</span>';
+  pillW=Math.min(420,Math.max(118,Math.ceil($('#pin').getBoundingClientRect().width)+32));
+  hint();layout();
+}
+function toast(m){msg=m;hint();clearTimeout(toastT);toastT=setTimeout(()=>{msg='';hint()},1800)}
+function add(raw){
+  const p=parse(raw);if(!p.text)return;
+  tasks.push({id:Date.now(),s:0,created:Date.now(),...p,raw});
+  save();
+}
+function cycle(x,back){x.s=(x.s+(back?2:1))%3;x.done=x.s===2?Date.now():0;save()}
+function remove(x){lastDel=x;tasks=tasks.filter(t=>t!==x);save();toast('Deleted. Press Ctrl+Z to undo')}
+function commitEdit(val){
+  const x=tasks.find(t=>t.id===editing);editing=null;
+  if(x&&val!=null){const p=parse(val);if(p.text){Object.assign(x,p,{raw:val});save()}}
+  render();$('#in').focus();
+}
+$('#in').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){add(e.target.value);e.target.value='';if(filter==='done')filter='active';sel=-1;render();e.preventDefault()}
+  else if(e.key==='ArrowDown'){if(view().length){sel=0;render();e.target.blur()}e.preventDefault()}
+  else if(e.key==='Escape'){if(e.target.value)e.target.value='';else setOpen(false)}
+});
+document.addEventListener('keydown',e=>{
+  if(!isOpen)return;
+  if(e.target.id==='ed'){
+    if(e.key==='Enter')commitEdit(e.target.value);else if(e.key==='Escape')commitEdit(null);return;
+  }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){if(lastDel){tasks.push(lastDel);lastDel=null;save();render();toast('Restored')}e.preventDefault();return}
+  if(e.target.id==='in')return;
+  const l=view(),x=l[sel];
+  switch(e.key){
+    case'ArrowDown':sel=Math.min(sel+1,l.length-1);break;
+    case'ArrowUp':if(sel<=0){sel=-1;$('#in').focus()}else sel--;break;
+    case' ':case'Enter':if(x)cycle(x,e.shiftKey);break;
+    case'Delete':case'Backspace':if(x){remove(x);}break;
+    case'e':case'F2':if(x){editing=x.id}break;
+    case'1':filter='active';sel=-1;break;
+    case'2':filter='today';sel=-1;break;
+    case'3':filter='done';sel=-1;break;
+    case'Escape':if(sel>=0){sel=-1;$('#in').focus()}else setOpen(false);break;
+    default:if(e.key.length===1&&!e.ctrlKey&&!e.altKey){sel=-1;$('#in').focus();return}else return;
+  }
+  e.preventDefault();render();
+});
+$('#tabs').addEventListener('click',e=>{const f=e.target.closest('.tab');if(f){filter=f.dataset.f;sel=-1;render();$('#in').focus()}});
+$('#list').addEventListener('click',e=>{
+  const li=e.target.closest('li');if(!li)return;
+  const x=tasks.find(t=>t.id==li.dataset.id);if(!x)return;
+  if(e.target.closest('.chk'))cycle(x);
+  else if(e.target.closest('.x'))remove(x);
+  else return;
+  render();
+});
+$('#list').addEventListener('dblclick',e=>{const li=e.target.closest('li');if(li&&!e.target.closest('.chk')){editing=+li.dataset.id;render()}});
+island.addEventListener('click',()=>{if(!isOpen)setOpen(true)});
+if(window.ResizeObserver)new ResizeObserver(layout).observe(panel);
+setInterval(render,6e4*5);
+if(document.fonts)document.fonts.ready.then(render);
+
+if(window.qt){
+  qt.onCmd(c=>setOpen(c==='toggle'?!isOpen:c==='open'));
+  // the window is click-through except where the island is
+  let ig=null;const setIg=v=>{if(ig!==v){ig=v;qt.ignore(v)}};
+  addEventListener('mousemove',e=>setIg(!e.target.closest('#island')));
+  document.addEventListener('mouseleave',()=>setIg(true));
+}else{
+  setOpen(true);
+}
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quick Tasks widget</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;600&display=swap">
+<style>
+:root{--fg:#f4f4f6;--dim:#a0a0a8;--acc:#7ab2ff;--red:#ff7b7b;--amb:#ffb340;--hov:rgba(255,255,255,.1)}
+body.light{--fg:#1a1a1a;--dim:#5f5f66;--acc:#0b57d0;--red:#c62828;--amb:#b26a00;--hov:rgba(0,0,0,.07)}
+*{box-sizing:border-box;margin:0}
+html,body{background:transparent;overflow:hidden;height:32px}
+body{color:var(--fg);font:13px/1 "Google Sans","Google Sans Flex","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;user-select:none}
+#w{display:inline-flex;align-items:center;gap:9px;height:32px;padding:0 12px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:background .15s}
+#w:hover{background:var(--hov)}
+#w:active{background:var(--hov);opacity:.8}
+.ring{width:12px;height:12px;border-radius:50%;border:2px solid var(--dim);flex:none}
+.ring.doing{background:radial-gradient(circle,currentColor 38%,transparent 44%);border-color:var(--acc);color:var(--acc)}
+.ring.u4{border-color:var(--red);color:var(--red)}.ring.u3{border-color:var(--acc);color:var(--acc)}.ring.u2{border-color:var(--amb);color:var(--amb)}
+.pt{max-width:190px;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.pd{font-size:12px;color:var(--dim)}.pd.today{color:var(--acc)}.pd.over{color:var(--red)}
+.pn{font-size:11px;font-weight:600;color:var(--dim);background:var(--hov);border-radius:8px;padding:2px 6px}
+</style>
+</head>
+<body>
+<div id="w"></div>
+<script>
+const $=s=>document.querySelector(s);
+let tasks=[];
+const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
+const today=()=>iso(new Date());
+const addDays=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
+const DOW=['sun','mon','tue','wed','thu','fri','sat'];
+const fmtTime=t=>{let[h,m]=t.split(':').map(Number);const ap=h>=12?'pm':'am';h=h%12||12;return h+(m?':'+String(m).padStart(2,'0'):'')+ap};
+const dueAt=x=>x.due?new Date(x.due+'T'+(x.time||'23:59')):null;
+function urg(x){
+  if(!x.due||x.s===2)return 0;
+  const ms=dueAt(x)-new Date();
+  if(ms<0)return 4;
+  if(x.due===today()||ms<864e5)return 3;
+  if(ms<3*864e5)return 2;
+  if(ms<7*864e5)return 1;
+  return 0;
+}
+const score=x=>urg(x)*4+x.pri*3;
+const cmpActive=(a,b)=>(b.s===1)-(a.s===1)||score(b)-score(a)||(a.due||'9999').localeCompare(b.due||'9999')||a.id-b.id;
+function dueLabel(x){
+  const d=x.due,t=today();let l;
+  if(d<t){l=Math.round((new Date(t)-new Date(d))/864e5)+'d late'}
+  else if(d===t){l=x.time&&dueAt(x)<new Date()?'late':'today'}
+  else if(d===addDays(1))l='tom';
+  else{const dt=new Date(d+'T00:00');const n=Math.round((dt-new Date(t))/864e5);l=n<7?DOW[dt.getDay()]:d.slice(5)}
+  if(x.time&&d>=t&&l!=='late')l+=' '+fmtTime(x.time);
+  return l;
+}
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function render(){
+  try{tasks=JSON.parse(qt.load()||'[]')}catch(e){tasks=[]}
+  const act=tasks.filter(x=>x.s<2).sort(cmpActive),f=act[0],w=$('#w');
+  if(f){
+    const u=urg(f),dc=u===4?'over':u===3?'today':'';
+    w.innerHTML=`<span class="ring ${f.s===1?'doing ':''}u${u}"></span><span class="pt">${esc(f.text)}</span>${f.due?`<span class="pd ${dc}">${dueLabel(f)}</span>`:''}${act.length>1?`<span class="pn">+${act.length-1}</span>`:''}`;
+  }else w.innerHTML='<span class="ring"></span><span class="pt">All clear</span>';
+  qt.wsize(w.getBoundingClientRect().width);
+}
+$('#w').addEventListener('click',()=>qt.wclick());
+qt.onData(render);
+qt.onTheme(light=>document.body.classList.toggle('light',light));
+setInterval(render,6e4);
+if(document.fonts)document.fonts.ready.then(render);
+render();
+</script>
+</body>
+</html>
